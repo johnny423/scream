@@ -1,6 +1,5 @@
 use pest::iterators::Pair;
 use pest_derive::Parser;
-use anyhow::Context;
 use pest::Parser;
 use crate::expr::Expr;
 
@@ -8,27 +7,27 @@ use crate::expr::Expr;
 #[grammar = "lang.pest"]
 struct LangParser;
 
-fn parse(pair: Pair<Rule>) -> anyhow::Result<Expr> {
+fn parse(pair: Pair<Rule>) -> Expr {
     match pair.as_rule() {
         Rule::expr => parse(
             pair.into_inner()
                 .next()
-                .context("Can't fail - expression always has internal")?,
+                .expect("Can't fail - expression always has internal")
         ),
-        Rule::number => Ok(Expr::Num(pair.as_str().into())),
-        Rule::boolean => Ok(Expr::Bool(pair.as_str().into())),
-        Rule::identifier => Ok(Expr::Var(pair.as_str().into())),
+        Rule::number => Expr::Num(pair.as_str().into()),
+        Rule::boolean => Expr::Bool(pair.as_str().into()),
+        Rule::identifier => Expr::Var(pair.as_str().into()),
         Rule::or_expr => {
             let mut inner = pair.into_inner();
-            let lhs = parse(inner.next().expect("Or must have two inner expressions"))?;
-            let rhs = parse(inner.next().expect("Or must have two inner expressions"))?;
-            Ok(Expr::Or(Box::new(lhs), Box::new(rhs)))
+            let lhs = parse(inner.next().expect("Or must have two inner expressions"));
+            let rhs = parse(inner.next().expect("Or must have two inner expressions"));
+            Expr::Or(Box::new(lhs), Box::new(rhs))
         }
         Rule::and_expr => {
             let mut inner = pair.into_inner();
-            let lhs = parse(inner.next().expect("And must have two inner expressions"))?;
-            let rhs = parse(inner.next().expect("And must have two inner expressions"))?;
-            Ok(Expr::And(Box::new(lhs), Box::new(rhs)))
+            let lhs = parse(inner.next().expect("And must have two inner expressions"));
+            let rhs = parse(inner.next().expect("And must have two inner expressions"));
+            Expr::And(Box::new(lhs), Box::new(rhs))
         }
         Rule::if_expr => {
             let mut inner_rule = pair.into_inner();
@@ -36,22 +35,22 @@ fn parse(pair: Pair<Rule>) -> anyhow::Result<Expr> {
                 inner_rule
                     .next()
                     .expect("If must have two inner expressions"),
-            )?;
+            );
             let then = parse(
                 inner_rule
                     .next()
                     .expect("If must have two inner expressions"),
-            )?;
+            );
             let otherwise = parse(
                 inner_rule
                     .next()
                     .expect("If must have two inner expressions"),
-            )?;
-            Ok(Expr::If {
+            );
+            Expr::If {
                 pred: Box::new(pred),
                 then: Box::new(then),
                 otherwise: Box::new(otherwise),
-            })
+            }
         }
         Rule::let_expr => {
             let mut inner_rule = pair.into_inner().peekable();
@@ -63,16 +62,16 @@ fn parse(pair: Pair<Rule>) -> anyhow::Result<Expr> {
             {
                 let mut binding = p.into_inner();
                 vars.push(binding.next().unwrap().as_str().into());
-                vals.push(parse(binding.next().unwrap())?);
+                vals.push(parse(binding.next().unwrap()));
             }
 
             let pair2 = inner_rule.find(|p| p.as_rule() == Rule::expr).unwrap();
-            let body = parse(pair2)?;
-            Ok(Expr::Let {
+            let body = parse(pair2);
+            Expr::Let {
                 vars,
                 vals,
                 body: Box::new(body),
-            })
+            }
         }
         Rule::lambda => {
             let mut inner_rule = pair.into_inner();
@@ -83,16 +82,16 @@ fn parse(pair: Pair<Rule>) -> anyhow::Result<Expr> {
                 .collect();
 
             let body = inner_rule.find(|p| p.as_rule() == Rule::expr).unwrap();
-            Ok(Expr::Proc {
+            Expr::Proc {
                 args,
-                body: Box::new(parse(body)?),
-            })
+                body: Box::new(parse(body)),
+            }
         }
         Rule::procedure_call => {
             let mut inner_rule = pair.into_inner();
-            let operator = parse(inner_rule.next().unwrap())?;
-            let operands = inner_rule.map(parse).collect::<anyhow::Result<_>>()?;
-            Ok(Expr::App(Box::new(operator), operands))
+            let operator = parse(inner_rule.next().unwrap());
+            let operands = inner_rule.map(parse).collect();
+            Expr::App(Box::new(operator), operands)
         }
         _ => {
             println!("AHHHHHH got {:?}", pair.as_rule());
@@ -106,6 +105,5 @@ pub fn parse_program(input: &str) -> Expr {
         .expect("parsing failed")
         .next()
         .unwrap();
-    let b = parse(a).unwrap();
-    b
+    parse(a)
 }
