@@ -1,14 +1,53 @@
-alpha  = _{ 'a'..'z' | 'A'..'Z' }
-digit  = _{ '0'..'9' }
-ident  = { (alpha | digit) ~ (alpha | digit | "_" | "-" | "?")* }
-number = { digit+ | ("-" ~ digit+) }
-bool   = { "#" ~ ("t" | "f") }
-or     = { "(" ~ "or" ~ " " ~ exp ~ " " ~ exp ~ ")" }
-and    = { "(" ~ "and" ~ " " ~ exp ~ " " ~ exp ~ ")" }
-if     = { "(" ~ "if" ~ " " ~ exp ~ " " ~ exp ~ " " ~ exp ~ ")" }
-var    = { ident }
-proc   = { "(" ~ "lambda" ~ " " ~ "(" ~ (" " ~ ident)* ~ ")" ~ " " ~ "(" ~ exp ~ ")" ~ ")" }
-op     = { ident | "+" | "-" | ">" | "<" | "<=" | ">="}
-app    = { "(" ~ op ~ (" " ~ exp)* ~ ")" }
-let    = { "(" ~ "let" ~ " " ~ "(" ~ ("(" ~ ident ~ " " ~ exp ~ ")")* ~ ")" ~ " " ~ "(" ~ exp ~ ")" ~ ")" }
-exp    = { bool | number | or | and | if | proc | app | var | let }
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+
+// Characters
+special_initial = _{ "!" | "$" | "%" | "&" | "*" | "/" | ":" | "<" | "=" | ">" | "?" | "^" | "_" | "~" | "+" | "-" | "." | "@" }
+letter          = _{ 'a'..'z' | 'A'..'Z' }
+digit           = _{ '0'..'9' }
+
+// Identifiers
+initial    = _{ letter | special_initial }
+subsequent = _{ initial | digit }
+identifier = @{ initial ~ subsequent* }
+
+string       = ${ "\"" ~ inner_string ~ "\"" }
+inner_string = @{ char* }
+char         =  {
+    !("\"" | "\\") ~ ANY
+  | "\\" ~ ("\"" | "\\" | "n" | "r" | "t")
+}
+
+number  = @{ "-"? ~ digit+ }
+boolean =  { "#t" | "#f" | "#true" | "#false" }
+
+lambda = { "(" ~ "lambda" ~ "(" ~ (identifier ~ identifier*)? ~ ")" ~ expr ~ ")" }
+
+if_expr     = { "(" ~ "if" ~ expr ~ expr ~ expr? ~ ")" }
+cond        = { "(" ~ "cond" ~ (clause | else_clause)+ ~ ")" }
+clause      = { "(" ~ expr ~ expr+ ~ ")" }
+else_clause = { "(" ~ "else" ~ expr+ ~ ")" }
+
+or_expr  = { "(" ~ "or" ~ expr* ~ ")" }
+and_expr = { "(" ~ "and" ~ expr* ~ ")" }
+
+let_expr = { "(" ~ "let" ~ "(" ~ binding+ ~ ")" ~ expr+ ~ ")" }
+binding  = { "(" ~ identifier ~ expr ~ ")" }
+
+procedure_call = { "(" ~ expr ~ expr* ~ ")" }
+
+expr = {
+    boolean
+  | number
+  | string
+  | identifier
+  | lambda
+  | if_expr
+  | cond
+  | let_expr
+  | or_expr
+  | and_expr
+  | procedure_call
+}
+
+// Program
+program = { SOI ~ expr* ~ EOI }
